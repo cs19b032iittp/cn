@@ -18,6 +18,7 @@
 #include "copyright.h"
 #include "utility.h"
 #include "callback.h"
+#include "../network/ethernet.h"
 
 // Network address -- uniquely identifies a machine.  This machine's ID
 //  is given on the command line.
@@ -58,7 +59,9 @@ class NetworkInput : public CallBackObj {
     // Allocate and initialize network input driver
     ~NetworkInput();  // De-allocate the network input driver data
 
-    PacketHeader Receive(char *data);
+    //PacketHeader Receive(char *data);
+	Ethernet Receive();
+    //void Receive(char *data);
     // Poll the network for incoming messages.
     // If there is a packet waiting, copy the
     // packet into "data" and return the header.
@@ -75,7 +78,7 @@ class NetworkInput : public CallBackObj {
                                  // 	arrived.
     bool packetAvail;            // Packet has arrived, can be pulled off of
                                  //   network
-    PacketHeader inHdr;          // Information about arrived packet
+    Ethernet inHdr;          // Information about arrived packet
     char inbox[MaxPacketSize];   // Data for arrived packet
 };
 
@@ -85,7 +88,8 @@ class NetworkOutput : public CallBackObj {
     // Allocate and initialize network output driver
     ~NetworkOutput();  // De-allocate the network input driver data
 
-    void Send(PacketHeader hdr, char *data);
+    //void Send(PacketHeader hdr, char *data);
+	void Send(Ethernet eth);
     // Send the packet data to a remote machine,
     // specified by "hdr".  Returns immediately.
     // "callWhenDone" is invoked once the next

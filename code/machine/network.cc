@@ -11,6 +11,8 @@
 #include "copyright.h"
 #include "network.h"
 #include "main.h"
+#include<iostream>
+using namespace std;
 
 //-----------------------------------------------------------------------
 // NetworkInput::NetworkInput
@@ -23,10 +25,9 @@ NetworkInput::NetworkInput(CallBackObj *toCall) {
     // set up the stuff to emulate asynchronous interrupts
     callWhenAvail = toCall;
     packetAvail = FALSE;
-    inHdr.length = 0;
 
     sock = OpenSocket();
-    sprintf(sockName, "SOCKET_%d", kernel->hostName);
+    sprintf(sockName, "/tmp/machine%d", kernel->hostName);
     AssignNameToSocket(sockName, sock);  // Bind socket to a filename
                                          // in the current directory.
 
@@ -59,23 +60,22 @@ void NetworkInput::CallBack() {
     // schedule the next time to poll for a packet
     kernel->interrupt->Schedule(this, NetworkTime, NetworkRecvInt);
 
-    if (inHdr.length != 0)  // do nothing if packet is already buffered
-        return;
     if (!PollSocket(sock))  // do nothing if no packet to be read
         return;
 
+
     // otherwise, read packet in
-    char *buffer = new char[MaxWireSize];
-    ReadFromSocket(sock, buffer, MaxWireSize);
+    char *buffer = new char[1526];
+    ReadFromSocket(sock, buffer, 1526);
 
     // divide packet into header and data
-    inHdr = *(PacketHeader *)buffer;
-    ASSERT((inHdr.to == kernel->hostName) && (inHdr.length <= MaxPacketSize));
-    bcopy(buffer + sizeof(PacketHeader), inbox, inHdr.length);
-    delete[] buffer;
+	inHdr = *(Ethernet *)buffer;
 
-    DEBUG(dbgNet, "Network received packet from " << inHdr.from << ", length "
-                                                  << inHdr.length);
+   	// ASSERT((inHdr.to == kernel->hostName) && (inHdr.length <= MaxPacketSize));
+    //bcopy(buffer + sizeof(PacketHeader), inbox, inHdr.length);
+    //delete[] buffer;
+
+    //DEBUG(dbgNet, "Network received packet from " << inHdr.from << ", length " << inHdr.length);
     kernel->stats->numPacketsRecvd++;
 
     // tell post office that the packet has arrived
@@ -87,6 +87,13 @@ void NetworkInput::CallBack() {
 // 	Read a packet, if one is buffered
 //-----------------------------------------------------------------------
 
+Ethernet NetworkInput::Receive() 
+{
+	Ethernet eth = inHdr;
+	return eth;
+}
+
+/*
 PacketHeader NetworkInput::Receive(char *data) {
     PacketHeader hdr = inHdr;
 
@@ -96,6 +103,8 @@ PacketHeader NetworkInput::Receive(char *data) {
     }
     return hdr;
 }
+*/
+
 
 //-----------------------------------------------------------------------
 // NetworkOutput::NetworkOutput
@@ -147,10 +156,10 @@ void NetworkOutput::CallBack() {
 // 	the socket, because it's simpler at the receive end.
 //-----------------------------------------------------------------------
 
-void NetworkOutput::Send(PacketHeader hdr, char *data) {
+/*void NetworkOutput::Send(PacketHeader hdr, char *data) {
     char toName[32];
 
-    sprintf(toName, "SOCKET_%d", (int)hdr.to);
+    sprintf(toName, "/tmp/switch%d", (int)hdr.from);
 
     ASSERT((sendBusy == FALSE) && (hdr.length > 0) &&
            (hdr.length <= MaxPacketSize) && (hdr.from == kernel->hostName));
@@ -169,4 +178,17 @@ void NetworkOutput::Send(PacketHeader hdr, char *data) {
     bcopy(data, buffer + sizeof(PacketHeader), hdr.length);
     SendToSocket(sock, buffer, MaxWireSize, toName);
     delete[] buffer;
+}*/
+void NetworkOutput::Send(Ethernet eth)
+{
+	char toName[32];
+	sprintf(toName, "/tmp/switch%d", kernel->hostName);
+
+	kernel->interrupt->Schedule(this, NetworkTime, NetworkSendInt);
+
+	unsigned char* buffer = (unsigned char*)malloc(sizeof(eth));
+
+	memcpy(buffer, (const unsigned char*)&eth, sizeof(eth));
+
+	SendToSocket(sock, buffer, sizeof(eth), toName);
 }

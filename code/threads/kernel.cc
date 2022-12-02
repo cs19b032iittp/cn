@@ -18,6 +18,9 @@
 #include "synchdisk.h"
 #include "post.h"
 
+#include<iostream>
+using namespace std;
+
 #define MAX_PROCESS 10
 //----------------------------------------------------------------------
 // Kernel::Kernel
@@ -104,8 +107,10 @@ void Kernel::Initialize(char *userProgName /*=NULL*/) {
 #else
     fileSystem = new FileSystem(formatFlag);
 #endif  // FILESYS_STUB
-    postOfficeIn = new PostOfficeInput(10);
-    postOfficeOut = new PostOfficeOutput(reliability);
+    postOfficeIn = new PostOfficeInput(10); postOfficeOut = new PostOfficeOutput(reliability);
+    iplayer = new IPLayer();
+	udplayer = new UDPLayer();
+	next_socket = 1;
 
     addrLock = new Semaphore("addrLock", 1);
     gPhysPageBitMap = new Bitmap(128);
@@ -199,7 +204,7 @@ void Kernel::ConsoleTest() {
 //  This test works best if each Nachos machine has its own window
 //----------------------------------------------------------------------
 
-void Kernel::NetworkTest() {
+/*void Kernel::NetworkTest() {
     if (hostName == 0 || hostName == 1) {
         // if we're machine 1, send to 0 and vice versa
         int farHost = (hostName == 0 ? 1 : 0);
@@ -241,4 +246,86 @@ void Kernel::NetworkTest() {
     }
 
     // Then we're done!
+}*/
+
+void Kernel::NetworkTest()
+{
+	if( kernel->hostName == 0 )
+	{
+		char data[4000];
+
+		for(int i=0;i<= 4000/1480;i++){
+			for(int j=0;j < 1480 && (i*1480 + j) < 4000;j++){
+				data[i*1480+j] = (i+'a');
+			}
+		}
+		cout << data[0] << " " << data[1479] << " " << data[1480] << " " << data[2959] << " " << data[2960]  << " " << data[3999] << endl;
+
+		udplayer->Send(data, strlen(data), "abcd", 0, 0);
+		cout << "Sent message" << endl;
+	}
+}
+
+int Kernel::addSocket( char* destIP, int srcPort, int destPort)
+{
+	Network_Socket ns;
+	ns.srcPort = srcPort;
+	ns.destPort = destPort;
+	int len = strlen(destIP);
+
+	ns.messages = new SynchList<char*>();
+
+	memcpy(ns.destIP, destIP, len);
+
+	socket_info[next_socket] = ns;
+
+	next_socket++;
+	return next_socket-1;
+}
+
+int Kernel::removeSocket(int sockID)
+{
+	if( socket_info.find(sockID) == socket_info.end() )
+		return -1;
+	socket_info.erase(sockID);
+	return 1;
+}
+
+Network_Socket Kernel::getSocket(int sockID)
+{
+	Network_Socket ns;
+
+	if( socket_info.find(sockID) == socket_info.end() )
+	{
+		ns.srcPort = -1;
+		return ns;
+	}
+
+	return socket_info[sockID];
+}
+
+int Kernel::putData(int sockID, char* message)
+{
+	if( socket_info.find(sockID) == socket_info.end() )
+	{
+		return -1;
+	}
+	
+	char* buffer = (char*)calloc(100, sizeof(char));
+	memcpy(buffer, message, strlen(message));
+	socket_info[sockID].messages->Append(buffer);
+	return 1;
+}
+
+int Kernel::getData(int sockID, char* message)
+{
+	if( socket_info.find(sockID) == socket_info.end() )
+	{
+		return -1;
+	}
+
+	char* buffer = socket_info[sockID].messages->RemoveFront();
+	
+	memcpy(message, buffer, strlen(buffer));
+	return 1;
 }

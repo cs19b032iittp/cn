@@ -18,6 +18,7 @@
 #include "alarm.h"
 #include "filesys.h"
 #include "machine.h"
+#include<map>
 
 class PostOfficeInput;
 class PostOfficeOutput;
@@ -25,6 +26,9 @@ class SynchConsoleInput;
 class SynchConsoleOutput;
 class SynchDisk;
 class Semaphore;
+class IPLayer;
+class UDPLayer;
+class Network_Socket;
 #include "bitmap.h"
 #include "stable.h"
 #include "ptable.h"
@@ -61,6 +65,8 @@ class Kernel {
     FileSystem *fileSystem;
     PostOfficeInput *postOfficeIn;
     PostOfficeOutput *postOfficeOut;
+    IPLayer *iplayer;
+	UDPLayer *udplayer;
 
     Semaphore *addrLock;
     Bitmap *gPhysPageBitMap;
@@ -68,6 +74,16 @@ class Kernel {
     PTable *pTab;
 
     int hostName;  // machine identifier
+
+	int next_socket;
+	map<int, Network_Socket> socket_info;
+
+	int addSocket(char* destIP, int srcPort, int destPort);
+	int removeSocket(int sockID);
+	Network_Socket getSocket(int sockID);
+	
+	int putData(int sockID, char* message);
+	int getData(int sockID, char* message);
 
    private:
     bool randomSlice;    // enable pseudo-random time slicing

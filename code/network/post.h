@@ -33,6 +33,12 @@
 #include "network.h"
 #include "synchlist.h"
 #include "synch.h"
+#include "ethernet.h"
+#include "ipheader.h"
+#include "udpheader.h"
+#include<unordered_map>
+#include<vector>
+#include<queue>
 
 // Mailbox address -- uniquely identifies a mailbox on a given machine.
 // A mailbox is just a place for temporary storage for messages.
@@ -61,15 +67,26 @@ class MailHeader {
 //	post office header (MailHeader)
 //	data
 
+class Network_Socket
+{
+	public:
+		char destIP[4];
+		int srcPort;
+		int destPort;
+		SynchList<char*> *messages;
+};
+
 class Mail {
    public:
-    Mail(PacketHeader pktH, MailHeader mailH, char *msgData);
+    //Mail(PacketHeader pktH, MailHeader mailH, char *msgData);
+	Mail(Ethernet ethH);
     // Initialize a mail message by
     // concatenating the headers to the data
 
-    PacketHeader pktHdr;     // Header appended by Network
-    MailHeader mailHdr;      // Header appended by PostOffice
-    char data[MaxMailSize];  // Payload -- message data
+    //PacketHeader pktHdr;     // Header appended by Network
+    //MailHeader mailHdr;      // Header appended by PostOffice
+    //char data[MaxMailSize];  // Payload -- message data
+	Ethernet ethHdr;
 };
 
 // The following class defines a single mailbox, or temporary storage
@@ -82,9 +99,11 @@ class MailBox {
     MailBox();   // Allocate and initialize mail box
     ~MailBox();  // De-allocate mail box
 
-    void Put(PacketHeader pktHdr, MailHeader mailHdr, char *data);
+    //void Put(PacketHeader pktHdr, MailHeader mailHdr, char *data);
+	void Put(Ethernet eth);
     // Atomically put a message into the mailbox
-    void Get(PacketHeader *pktHdr, MailHeader *mailHdr, char *data);
+    int Get(Ethernet* eth);
+    //void Get(PacketHeader *pktHdr, MailHeader *mailHdr, char *data);
     // Atomically get a message out of the
     // mailbox (and wait if there is no message
     // to get!)
@@ -107,14 +126,16 @@ class PostOfficeInput : public CallBackObj {
     PostOfficeInput(int nBoxes);  // Allocate and initialize Post Office
     ~PostOfficeInput();           // De-allocate Post Office data
 
-    void Receive(int box, PacketHeader *pktHdr, MailHeader *mailHdr,
-                 char *data);
+	//void Receive(int box, PacketHeader *pktHdr, MailHeader *mailHdr,char *data);
+    void Receive(char* data);
     // Retrieve a message from "box".  Wait if
     // there is no message in the box.
 
     static void PostalDelivery(void *data);
     // Wait for incoming messages,
     // and then put them in the correct mailbox
+
+	static void PostalPickup(void *data);
 
     void CallBack();  // Called when incoming packet has arrived
                       // and can be pulled off of network
@@ -123,6 +144,7 @@ class PostOfficeInput : public CallBackObj {
    private:
     NetworkInput *network;        // Physical network connection
     MailBox *boxes;               // Table of mail boxes to hold incoming mail
+	IPLayer* iplayer;
     int numBoxes;                 // Number of mail boxes
     Semaphore *messageAvailable;  // V'ed when message has arrived from network
 };
@@ -135,7 +157,8 @@ class PostOfficeOutput : public CallBackObj {
     //   get dropped by the underlying network
     ~PostOfficeOutput();  // De-allocate Post Office data
 
-    void Send(PacketHeader pktHdr, MailHeader mailHdr, char *data);
+    //void Send(PacketHeader pktHdr, MailHeader mailHdr, char *data);
+	void Send(unsigned char* data, int dest);
     // Send a message to a mailbox on a remote
     // machine.  The fromBox in the MailHeader is
     // the return box for ack's.
@@ -147,5 +170,35 @@ class PostOfficeOutput : public CallBackObj {
     NetworkOutput *network;  // Physical network connection
     Semaphore *messageSent;  // V'ed when next message can be sent to network
     Lock *sendLock;          // Only one outgoing message at a time
+};
+
+struct packet
+{
+	int MF;
+	char* data;
+	int offset;
+};
+
+class IPLayer
+{
+    public:
+    IPLayer();
+    void Send(char* data, int size, int destMachine);
+    void Receive(char* data);
+	
+	private:
+		unordered_map<string, vector<struct packet>> packetDict;
+		string computeHash(unsigned char* srcIP, unsigned char* destIP, int identification);
+		void check(string);
+		void insertToMap(string key, IPHeader* iphdr);
+};
+
+
+class UDPLayer
+{
+	public:
+		UDPLayer();
+		void Send(char* data, int size, char* destIP, int srcPort, int destPort);
+		void Receive(char* data);
 };
 #endif
