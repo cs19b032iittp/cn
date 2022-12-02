@@ -10,6 +10,5 @@ int main()
 	PrintString(message);
 	sock = create_Socket("b", 1, 1);
 	send_msg(sock, message);
-	PrintString("\n");
 	res = close(sock);
 }

@@ -36,6 +36,7 @@
 #include "ethernet.h"
 #include "ipheader.h"
 #include "udpheader.h"
+#include "icmpheader.h"
 #include<unordered_map>
 #include<vector>
 #include<queue>
@@ -200,5 +201,15 @@ class UDPLayer
 		UDPLayer();
 		void Send(char* data, int size, char* destIP, int srcPort, int destPort);
 		void Receive(char* data);
+};
+
+class ICMPLayer
+{
+	public:
+		ICMPLayer();
+		void Send(char* data, int size, char* destIP);
+		void SendAcknowledgment(char* data, int size, char* destIP);
+		void Receive(char* data);
+
 };
 #endif

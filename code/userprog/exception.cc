@@ -416,7 +416,20 @@ void handle_SC_send_msg()
 	char* msg = stringUser2System(virtAddr);
 
 	Network_Socket ns = kernel->getSocket(sockID);
-	kernel->udplayer->Send(msg, strlen(msg), ns.destIP, ns.srcPort, ns.destPort);
+	kernel->icmplayer->Send(msg, strlen(msg), ns.destIP);
+    
+    while(1){
+        kernel->currentThread->Yield();
+    }
+
+    // int sock;
+	// int res;
+	// char message[100];
+	// PrintString("Hello from receive function\n");
+	// PrintString("Received Message is:");
+
+	// sock = create_Socket("a", 1, 1);
+	// recv_msg(sock, message);
 
 	delete[] msg;
 	return move_program_counter();

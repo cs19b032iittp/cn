@@ -355,10 +355,13 @@ void PostOfficeOutput::Send(PacketHeader pktHdr, MailHeader mailHdr,char *data) 
 
 void PostOfficeOutput::Send(unsigned char* data, int dest)
 {
+	cout << "Inside post out send" << endl;
 	Ethernet eth;
 	memcpy(eth.srcMAC, macpool[kernel->hostName], 6);
 	memcpy(eth.destMAC, macpool[dest], 6);
 	memcpy(eth.payload, data, 1500);
+
+	printf("\nethernet send:");
 
 	sendLock->Acquire();
 
@@ -386,8 +389,14 @@ IPLayer::IPLayer(){
 }
 UDPLayer::UDPLayer(){
 }
+ICMPLayer::ICMPLayer(){
+}
+
 void IPLayer::Send(char* data,int size, int destMachine){
     // IP Header Fields
+
+	printf("\nip send: %d", destMachine);
+
     const int IPHEADERSIZE = 20;
     const int ETHPAYLOADSIZE = 1500;
     const int UDPPROTOCOL = 17;
@@ -420,7 +429,7 @@ void IPLayer::Send(char* data,int size, int destMachine){
         // check this once
         iphdr.fragmentOffset = (i*space)/8;
         iphdr.timeToLive = TTL;
-        iphdr.protocol = UDPPROTOCOL;
+        iphdr.protocol = 1;
         iphdr.checksum = CHECKSUM;
         memcpy(iphdr.srcIP, SRCIP, 4);
         memcpy(iphdr.destIP, DESTIP, 4);
@@ -429,9 +438,12 @@ void IPLayer::Send(char* data,int size, int destMachine){
 
         unsigned char* buffer = (unsigned char*)calloc(ETHPAYLOADSIZE, sizeof(char));
         memcpy(buffer, (const unsigned char*)&iphdr, sizeof(iphdr));
-  
+
+		cout << "SIZE: " << sizeof(buffer) << endl;
         kernel->postOfficeOut->Send(buffer, destMachine);
-    }
+		cout << "e" << endl; 
+
+	}
 }
 
 void PrintPacket(IPHeader* iphdr)
@@ -531,13 +543,14 @@ void IPLayer::check(string key)
 	{
 		int size = v.size();
 		size *= 1480;
-		char* udpDatagram = (char*)calloc(size, sizeof(char));
+		char* icmpdatagram = (char*)calloc(size, sizeof(char));
 		for( int i = 0 ; i < v.size() ;i++ )
 		{
-			memcpy(udpDatagram+i*1480, v[i].data,1480);
+			memcpy(icmpdatagram+i*1480, v[i].data,1480);
 		}
 
-		kernel->udplayer->Receive(udpDatagram);
+		// kernel->udplayer->Receive(udpDatagram);
+		kernel->icmplayer->Receive(icmpdatagram);
 
 		packetDict.erase(packetDict.find(key));
 	}
@@ -553,6 +566,94 @@ void IPLayer::Receive(char* data)
 	insertToMap(key, iphdr);
 	check(key);
 }
+
+void ICMPLayer::Send(char* data, int size, char* destIP)
+{
+
+	printf("\nicmp send:");
+	const int ICMPHEADERSIZE = 8;
+	ICMPHeader icmphdr;
+
+	icmphdr.checksum = 0;
+	icmphdr.code = 0;
+	icmphdr.type = 8;
+
+
+	memset(icmphdr.data, '\0', size*sizeof(char));
+	memcpy(icmphdr.data, data, size*sizeof(char));
+
+	char* buffer = (char*)calloc(size + ICMPHEADERSIZE, sizeof(char));
+	memcpy(buffer, (const char*)&icmphdr, size+ICMPHEADERSIZE);
+
+
+	int dmac = 1;
+	if( destIP[0] == 'a' )
+		dmac = 0;
+	kernel->iplayer->Send(buffer, size + ICMPHEADERSIZE, dmac);
+
+}
+
+
+void ICMPLayer::SendAcknowledgment(char* data, int size, char* destIP)
+{
+
+	
+	printf("\nicmp ack send:");
+	const int ICMPHEADERSIZE = 8;
+	ICMPHeader icmphdr;
+
+	icmphdr.checksum = 0;
+	icmphdr.code = 0;
+	icmphdr.type = 0;
+
+
+	memset(icmphdr.data, '\0', size*sizeof(char));
+	memcpy(icmphdr.data, data, size*sizeof(char));
+
+	char* buffer = (char*)calloc(size + ICMPHEADERSIZE, sizeof(char));
+	memcpy(buffer, (const char*)&icmphdr, size+ICMPHEADERSIZE);
+
+
+	int dmac = 1;
+	if( destIP[0] == 'a' )
+		dmac = 0;
+	cout << "SIZE = " << size << endl;
+	kernel->iplayer->Send(buffer, size + ICMPHEADERSIZE, dmac);
+
+}
+
+void printICMPDatagram(ICMPHeader* icmphdr)
+{
+
+	cout << "\n-----------------------ICMPDatagram---------------------"<< endl;
+	cout << "checksum = " << icmphdr->checksum << endl;
+	cout << "type = " << icmphdr->type << endl;
+	cout << "data = ";
+	for( int i = 0 ; i < strlen(icmphdr->data); i++ )
+		cout << icmphdr->data[i];
+	cout << "\n----------------------------------------------"<< endl;
+
+}
+
+void ICMPLayer::Receive(char* data)
+{
+	ICMPHeader* icmphdr;
+	icmphdr = (ICMPHeader*)data;
+	
+	printICMPDatagram(icmphdr);
+	kernel->putData(1, icmphdr->data);
+
+	if(icmphdr->type == 8){
+
+		char ack[] = "Received!!";
+		int size = sizeof(ack);
+
+		char* dmac = "a";
+
+		kernel->icmplayer->SendAcknowledgment(ack, size-1, dmac);
+	}
+}
+
 
 void UDPLayer::Send(char* data, int size, char* destIP, int srcPort, int destPort)
 {
@@ -598,4 +699,5 @@ void UDPLayer::Receive(char* data)
 	//printUDPDatagram(udphdr);
 	kernel->putData(udphdr->destinationPort, udphdr->data);
 }
+
 

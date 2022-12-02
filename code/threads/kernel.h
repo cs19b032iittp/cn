@@ -28,6 +28,7 @@ class SynchDisk;
 class Semaphore;
 class IPLayer;
 class UDPLayer;
+class ICMPLayer;
 class Network_Socket;
 #include "bitmap.h"
 #include "stable.h"
@@ -67,6 +68,8 @@ class Kernel {
     PostOfficeOutput *postOfficeOut;
     IPLayer *iplayer;
 	UDPLayer *udplayer;
+    ICMPLayer *icmplayer;
+
 
     Semaphore *addrLock;
     Bitmap *gPhysPageBitMap;

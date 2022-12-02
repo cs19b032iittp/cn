@@ -101,7 +101,7 @@ void Kernel::Initialize(char *userProgName /*=NULL*/) {
     machine = new Machine(debugUserProg);
     synchConsoleIn = new SynchConsoleInput(consoleIn);     // input from stdin
     synchConsoleOut = new SynchConsoleOutput(consoleOut);  // output to stdout
-    synchDisk = new SynchDisk();                           //
+    synchDisk = new SynchDisk();                            //
 #ifdef FILESYS_STUB
     fileSystem = new FileSystem();
 #else
@@ -314,6 +314,8 @@ int Kernel::putData(int sockID, char* message)
 	char* buffer = (char*)calloc(100, sizeof(char));
 	memcpy(buffer, message, strlen(message));
 	socket_info[sockID].messages->Append(buffer);
+
+
 	return 1;
 }
 
